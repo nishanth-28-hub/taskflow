@@ -1,22 +1,21 @@
-const Database = require("better-sqlite3");
-const path = require("path");
+const { Pool } = require("pg");
 
-// Location of the SQLite database file
-const dbPath = path.join(__dirname, "todo.db");
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 
-// Create or open the database
-const db = new Database(dbPath);
+pool.query("SELECT NOW()")
+    .then(() => {
+        console.log("PostgreSQL database connected successfully.");
+    })
+    .catch((error) => {
+        console.error(
+            "Database connection failed:",
+            error.message
+        );
+    });
 
-// Create the tasks table if it doesn't exist
-db.prepare(`
-    CREATE TABLE IF NOT EXISTS tasks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        completed INTEGER NOT NULL DEFAULT 0,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-`).run();
-
-console.log("Database connected successfully.");
-
-module.exports = db;
+module.exports = pool;

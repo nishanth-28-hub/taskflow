@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 const db = require("./database");
@@ -5,28 +7,27 @@ const db = require("./database");
 const app = express();
 const PORT = 3000;
 
-// Allow JSON data
 app.use(express.json());
 
-// Serve the frontend
-app.use(express.static(path.join(__dirname, "../frontend")));
+app.use(
+    express.static(
+        path.join(__dirname, "../frontend")
+    )
+);
 
-
-// ================================
-// GET ALL TASKS
-// ================================
-
-app.get("/api/tasks", (req, res) => {
+// GET all tasks
+app.get("/api/tasks", async (req, res) => {
     try {
-        const tasks = db.prepare(`
+        const result = await db.query(`
             SELECT *
             FROM tasks
             ORDER BY id DESC
-        `).all();
+        `);
 
-        res.json(tasks);
+        res.json(result.rows);
 
     } catch (error) {
+
         console.error(error);
 
         res.status(500).json({
@@ -35,13 +36,11 @@ app.get("/api/tasks", (req, res) => {
     }
 });
 
+// ADD task
+app.post("/api/tasks", async (req, res) => {
 
-// ================================
-// ADD TASK
-// ================================
-
-app.post("/api/tasks", (req, res) => {
     try {
+
         const { title } = req.body;
 
         if (!title || title.trim() === "") {
@@ -50,20 +49,19 @@ app.post("/api/tasks", (req, res) => {
             });
         }
 
-        const result = db.prepare(`
+        const result = await db.query(
+            `
             INSERT INTO tasks (title)
-            VALUES (?)
-        `).run(title.trim());
+            VALUES ($1)
+            RETURNING *
+            `,
+            [title.trim()]
+        );
 
-        const task = db.prepare(`
-            SELECT *
-            FROM tasks
-            WHERE id = ?
-        `).get(result.lastInsertRowid);
-
-        res.status(201).json(task);
+        res.status(201).json(result.rows[0]);
 
     } catch (error) {
+
         console.error(error);
 
         res.status(500).json({
@@ -72,15 +70,14 @@ app.post("/api/tasks", (req, res) => {
     }
 });
 
+// UPDATE task
+app.put("/api/tasks/:id", async (req, res) => {
 
-// ================================
-// UPDATE TASK
-// ================================
-
-app.put("/api/tasks/:id", (req, res) => {
     try {
+
         const id = Number(req.params.id);
-        const { completed } = req.body;
+
+        const { title, completed } = req.body;
 
         if (!Number.isInteger(id)) {
             return res.status(400).json({
@@ -88,27 +85,50 @@ app.put("/api/tasks/:id", (req, res) => {
             });
         }
 
-        const result = db.prepare(`
-            UPDATE tasks
-            SET completed = ?
-            WHERE id = ?
-        `).run(completed ? 1 : 0, id);
+        const existingResult = await db.query(
+            "SELECT * FROM tasks WHERE id = $1",
+            [id]
+        );
 
-        if (result.changes === 0) {
+        if (existingResult.rows.length === 0) {
             return res.status(404).json({
                 error: "Task not found"
             });
         }
 
-        const task = db.prepare(`
-            SELECT *
-            FROM tasks
-            WHERE id = ?
-        `).get(id);
+        const existingTask = existingResult.rows[0];
 
-        res.json(task);
+        const newTitle =
+            title !== undefined
+                ? String(title).trim()
+                : existingTask.title;
+
+        const newCompleted =
+            completed !== undefined
+                ? (completed ? 1 : 0)
+                : existingTask.completed;
+
+        if (!newTitle) {
+            return res.status(400).json({
+                error: "Task title is required"
+            });
+        }
+
+        const result = await db.query(
+            `
+            UPDATE tasks
+            SET title = $1,
+                completed = $2
+            WHERE id = $3
+            RETURNING *
+            `,
+            [newTitle, newCompleted, id]
+        );
+
+        res.json(result.rows[0]);
 
     } catch (error) {
+
         console.error(error);
 
         res.status(500).json({
@@ -117,13 +137,11 @@ app.put("/api/tasks/:id", (req, res) => {
     }
 });
 
+// DELETE task
+app.delete("/api/tasks/:id", async (req, res) => {
 
-// ================================
-// DELETE TASK
-// ================================
-
-app.delete("/api/tasks/:id", (req, res) => {
     try {
+
         const id = Number(req.params.id);
 
         if (!Number.isInteger(id)) {
@@ -132,12 +150,16 @@ app.delete("/api/tasks/:id", (req, res) => {
             });
         }
 
-        const result = db.prepare(`
+        const result = await db.query(
+            `
             DELETE FROM tasks
-            WHERE id = ?
-        `).run(id);
+            WHERE id = $1
+            RETURNING id
+            `,
+            [id]
+        );
 
-        if (result.changes === 0) {
+        if (result.rows.length === 0) {
             return res.status(404).json({
                 error: "Task not found"
             });
@@ -148,6 +170,7 @@ app.delete("/api/tasks/:id", (req, res) => {
         });
 
     } catch (error) {
+
         console.error(error);
 
         res.status(500).json({
@@ -156,7 +179,10 @@ app.delete("/api/tasks/:id", (req, res) => {
     }
 });
 
+// Start server locally
+if (require.main === module) {
 
+<<<<<<< HEAD
 // ================================
 // START SERVER
 // ================================
@@ -167,3 +193,16 @@ if (require.main === module) {
 }
 
 module.exports = app;
+=======
+    app.listen(PORT, () => {
+
+        console.log(
+            `Server running at http://localhost:${PORT}`
+        );
+
+    });
+
+}
+
+module.exports = app;
+>>>>>>> 4cd4ba7 (Migrate TaskFlow to Neon PostgreSQL)
