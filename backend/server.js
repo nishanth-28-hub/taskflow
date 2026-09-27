@@ -7,15 +7,19 @@ const db = require("./database");
 const app = express();
 const PORT = 3000;
 
+// Middleware
 app.use(express.json());
 
+// Serve frontend
 app.use(
     express.static(
         path.join(__dirname, "../frontend")
     )
 );
 
-// GET all tasks
+// ================================
+// GET ALL TASKS
+// ================================
 app.get("/api/tasks", async (req, res) => {
     try {
         const result = await db.query(`
@@ -27,8 +31,7 @@ app.get("/api/tasks", async (req, res) => {
         res.json(result.rows);
 
     } catch (error) {
-
-        console.error(error);
+        console.error("GET tasks error:", error);
 
         res.status(500).json({
             error: "Failed to fetch tasks"
@@ -36,11 +39,11 @@ app.get("/api/tasks", async (req, res) => {
     }
 });
 
-// ADD task
+// ================================
+// ADD TASK
+// ================================
 app.post("/api/tasks", async (req, res) => {
-
     try {
-
         const { title } = req.body;
 
         if (!title || title.trim() === "") {
@@ -61,8 +64,7 @@ app.post("/api/tasks", async (req, res) => {
         res.status(201).json(result.rows[0]);
 
     } catch (error) {
-
-        console.error(error);
+        console.error("POST task error:", error);
 
         res.status(500).json({
             error: "Failed to add task"
@@ -70,13 +72,12 @@ app.post("/api/tasks", async (req, res) => {
     }
 });
 
-// UPDATE task
+// ================================
+// UPDATE TASK
+// ================================
 app.put("/api/tasks/:id", async (req, res) => {
-
     try {
-
         const id = Number(req.params.id);
-
         const { title, completed } = req.body;
 
         if (!Number.isInteger(id)) {
@@ -85,8 +86,13 @@ app.put("/api/tasks/:id", async (req, res) => {
             });
         }
 
+        // Find existing task
         const existingResult = await db.query(
-            "SELECT * FROM tasks WHERE id = $1",
+            `
+            SELECT *
+            FROM tasks
+            WHERE id = $1
+            `,
             [id]
         );
 
@@ -98,11 +104,13 @@ app.put("/api/tasks/:id", async (req, res) => {
 
         const existingTask = existingResult.rows[0];
 
+        // Keep old title if title wasn't provided
         const newTitle =
             title !== undefined
                 ? String(title).trim()
                 : existingTask.title;
 
+        // Keep old completion status if not provided
         const newCompleted =
             completed !== undefined
                 ? (completed ? 1 : 0)
@@ -128,8 +136,7 @@ app.put("/api/tasks/:id", async (req, res) => {
         res.json(result.rows[0]);
 
     } catch (error) {
-
-        console.error(error);
+        console.error("PUT task error:", error);
 
         res.status(500).json({
             error: "Failed to update task"
@@ -137,11 +144,11 @@ app.put("/api/tasks/:id", async (req, res) => {
     }
 });
 
-// DELETE task
+// ================================
+// DELETE TASK
+// ================================
 app.delete("/api/tasks/:id", async (req, res) => {
-
     try {
-
         const id = Number(req.params.id);
 
         if (!Number.isInteger(id)) {
@@ -170,8 +177,7 @@ app.delete("/api/tasks/:id", async (req, res) => {
         });
 
     } catch (error) {
-
-        console.error(error);
+        console.error("DELETE task error:", error);
 
         res.status(500).json({
             error: "Failed to delete task"
@@ -179,30 +185,27 @@ app.delete("/api/tasks/:id", async (req, res) => {
     }
 });
 
-// Start server locally
-if (require.main === module) {
-
-<<<<<<< HEAD
 // ================================
-// START SERVER
+// START SERVER LOCALLY
 // ================================
+//
+// When running:
+//     node server.js
+//
+// the server starts on port 3000.
+//
+// When Vercel imports this file,
+// require.main !== module,
+// so Vercel can use the Express app
+// without starting another server.
+//
 if (require.main === module) {
     app.listen(PORT, () => {
-        console.log(`Server running at http://localhost:${PORT}`);
-    });
-}
-
-module.exports = app;
-=======
-    app.listen(PORT, () => {
-
         console.log(
             `Server running at http://localhost:${PORT}`
         );
-
     });
-
 }
 
+// Export for Vercel
 module.exports = app;
->>>>>>> 4cd4ba7 (Migrate TaskFlow to Neon PostgreSQL)
